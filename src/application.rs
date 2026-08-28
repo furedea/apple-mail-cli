@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use crate::bridge::{BridgeError, MailBridge};
 use crate::cli::Command;
-use crate::request::MailRequest;
+use crate::request::{MailRequest, MutationPreview};
 
 /// Executes a parsed command through a Mail bridge.
 ///
@@ -13,6 +13,14 @@ use crate::request::MailRequest;
 ///
 /// Returns an error when request serialization, bridge execution, or response validation fails.
 pub fn run(command: &Command, bridge: &mut impl MailBridge) -> Result<Value, ApplicationError> {
+    if let Some(preview) = MutationPreview::from_command(command) {
+        let mutation = serde_json::to_value(preview).map_err(ApplicationError::Serialize)?;
+        return Ok(serde_json::json!({
+            "ok": true,
+            "data": {"status": "preview", "mutation": mutation},
+        }));
+    }
+
     let request = MailRequest::from(command);
     let request_json = serde_json::to_string(&request).map_err(ApplicationError::Serialize)?;
     let response_json = bridge

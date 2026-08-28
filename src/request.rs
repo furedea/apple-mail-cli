@@ -26,7 +26,9 @@ pub enum MailRequest<'a> {
         account: &'a str,
         mailbox: &'a str,
         id: u64,
-        max_body_bytes: u32,
+        include_body: bool,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        max_body_bytes: Option<u32>,
     },
     MarkRead {
         account: &'a str,
@@ -39,6 +41,42 @@ pub enum MailRequest<'a> {
         id: u64,
         destination: &'a str,
     },
+}
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "action", rename_all = "kebab-case")]
+pub enum MutationPreview<'a> {
+    MarkRead {
+        account: &'a str,
+        mailbox: &'a str,
+        id: u64,
+    },
+    Move {
+        account: &'a str,
+        mailbox: &'a str,
+        id: u64,
+        destination: &'a str,
+    },
+}
+
+impl<'a> MutationPreview<'a> {
+    #[must_use]
+    pub fn from_command(command: &'a Command) -> Option<Self> {
+        match command {
+            Command::MarkRead(args) if !args.execute() => Some(Self::MarkRead {
+                account: args.locator().account(),
+                mailbox: args.locator().mailbox(),
+                id: args.locator().id(),
+            }),
+            Command::Move(args) if !args.execute() => Some(Self::Move {
+                account: args.locator().account(),
+                mailbox: args.locator().mailbox(),
+                id: args.locator().id(),
+                destination: args.destination(),
+            }),
+            _ => None,
+        }
+    }
 }
 
 impl<'a> From<&'a Command> for MailRequest<'a> {
@@ -62,12 +100,13 @@ impl<'a> From<&'a Command> for MailRequest<'a> {
                 account: args.locator().account(),
                 mailbox: args.locator().mailbox(),
                 id: args.locator().id(),
+                include_body: args.include_body(),
                 max_body_bytes: args.max_body_bytes(),
             },
-            Command::MarkRead(locator) => Self::MarkRead {
-                account: locator.account(),
-                mailbox: locator.mailbox(),
-                id: locator.id(),
+            Command::MarkRead(args) => Self::MarkRead {
+                account: args.locator().account(),
+                mailbox: args.locator().mailbox(),
+                id: args.locator().id(),
             },
             Command::Move(args) => Self::Move {
                 account: args.locator().account(),

@@ -3,6 +3,7 @@ use std::str::FromStr;
 use clap::{Parser, Subcommand};
 
 const MAX_ACCOUNT_BYTES: usize = 1_024;
+const DEFAULT_MAX_BODY_BYTES: u32 = 65_536;
 const MAX_MAILBOX_BYTES: usize = 4_096;
 const MAX_QUERY_BYTES: usize = 1_024;
 
@@ -34,12 +35,34 @@ pub enum Command {
     Unread(UnreadArgs),
     /// Search sender and subject in an inbox or mailbox.
     Search(SearchArgs),
-    /// Read one message body from a locator.
+    /// Get one message. The body is omitted unless explicitly requested.
     Get(GetArgs),
-    /// Mark one located message as read.
-    MarkRead(MessageLocatorArgs),
-    /// Move one located message to an explicit mailbox in the same account.
+    /// Preview marking one located message as read.
+    MarkRead(MarkReadArgs),
+    /// Preview moving one located message within the same account.
     Move(MoveArgs),
+}
+
+#[derive(Debug, clap::Args)]
+pub struct MarkReadArgs {
+    #[command(flatten)]
+    locator: MessageLocatorArgs,
+
+    /// Execute the previewed mutation.
+    #[arg(long)]
+    execute: bool,
+}
+
+impl MarkReadArgs {
+    #[must_use]
+    pub const fn locator(&self) -> &MessageLocatorArgs {
+        &self.locator
+    }
+
+    #[must_use]
+    pub const fn execute(&self) -> bool {
+        self.execute
+    }
 }
 
 #[derive(Debug, clap::Args)]
@@ -124,9 +147,13 @@ pub struct GetArgs {
     #[command(flatten)]
     locator: MessageLocatorArgs,
 
+    /// Include the message body in the result.
+    #[arg(long)]
+    include_body: bool,
+
     /// Maximum UTF-8 bytes of message body to return.
-    #[arg(long, default_value_t = 65_536, value_parser = clap::value_parser!(u32).range(1..=1_000_000))]
-    max_body_bytes: u32,
+    #[arg(long, requires = "include_body", value_parser = clap::value_parser!(u32).range(1..=1_000_000))]
+    max_body_bytes: Option<u32>,
 }
 
 impl GetArgs {
@@ -136,8 +163,14 @@ impl GetArgs {
     }
 
     #[must_use]
-    pub const fn max_body_bytes(&self) -> u32 {
-        self.max_body_bytes
+    pub const fn include_body(&self) -> bool {
+        self.include_body
+    }
+
+    #[must_use]
+    pub fn max_body_bytes(&self) -> Option<u32> {
+        self.include_body
+            .then(|| self.max_body_bytes.unwrap_or(DEFAULT_MAX_BODY_BYTES))
     }
 }
 
@@ -181,6 +214,10 @@ pub struct MoveArgs {
     /// Destination mailbox path returned by `mailboxes`.
     #[arg(long = "to")]
     destination: BoundedText<MAX_MAILBOX_BYTES>,
+
+    /// Execute the previewed mutation.
+    #[arg(long)]
+    execute: bool,
 }
 
 impl MoveArgs {
@@ -192,6 +229,11 @@ impl MoveArgs {
     #[must_use]
     pub fn destination(&self) -> &str {
         self.destination.as_str()
+    }
+
+    #[must_use]
+    pub const fn execute(&self) -> bool {
+        self.execute
     }
 }
 

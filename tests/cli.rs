@@ -181,7 +181,7 @@ fn search_command_maps_query_scope_and_limit_to_the_bridge_request() {
 }
 
 #[test]
-fn get_command_maps_locator_and_body_bound_to_the_bridge_request() {
+fn get_command_omits_the_message_body_by_default() {
     let cli = Cli::try_parse_from([
         "apple-mail",
         "get",
@@ -191,8 +191,6 @@ fn get_command_maps_locator_and_body_bound_to_the_bridge_request() {
         "Inbox",
         "--id",
         "42",
-        "--max-body-bytes",
-        "4096",
     ])
     .expect("get command should parse");
     let request = MailRequest::from(cli.command());
@@ -204,13 +202,95 @@ fn get_command_maps_locator_and_body_bound_to_the_bridge_request() {
             "account": "account-1",
             "mailbox": "Inbox",
             "id": 42,
+            "include_body": false,
+        }),
+    );
+}
+
+#[test]
+fn get_command_includes_a_bounded_body_only_when_requested() {
+    let cli = Cli::try_parse_from([
+        "apple-mail",
+        "get",
+        "--account",
+        "account-1",
+        "--mailbox",
+        "Inbox",
+        "--id",
+        "42",
+        "--include-body",
+        "--max-body-bytes",
+        "4096",
+    ])
+    .expect("get command should accept explicit body access");
+    let request = MailRequest::from(cli.command());
+
+    assert_eq!(
+        serde_json::to_value(request).expect("bridge request should serialize"),
+        json!({
+            "action": "get",
+            "account": "account-1",
+            "mailbox": "Inbox",
+            "id": 42,
+            "include_body": true,
             "max_body_bytes": 4096,
         }),
     );
 }
 
 #[test]
-fn mark_read_command_maps_its_locator_to_the_bridge_request() {
+fn get_command_bounds_an_explicit_body_when_no_bound_is_supplied() {
+    let cli = Cli::try_parse_from([
+        "apple-mail",
+        "get",
+        "--account",
+        "account-1",
+        "--mailbox",
+        "Inbox",
+        "--id",
+        "42",
+        "--include-body",
+    ])
+    .expect("get command should accept body access with the default bound");
+    let request = MailRequest::from(cli.command());
+
+    assert_eq!(
+        serde_json::to_value(request).expect("bridge request should serialize"),
+        json!({
+            "action": "get",
+            "account": "account-1",
+            "mailbox": "Inbox",
+            "id": 42,
+            "include_body": true,
+            "max_body_bytes": 65_536,
+        }),
+    );
+}
+
+#[test]
+fn get_command_rejects_a_body_bound_without_body_access() {
+    let error = Cli::try_parse_from([
+        "apple-mail",
+        "get",
+        "--account",
+        "account-1",
+        "--mailbox",
+        "Inbox",
+        "--id",
+        "42",
+        "--max-body-bytes",
+        "4096",
+    ])
+    .expect_err("a body bound without body access must be rejected");
+
+    assert_eq!(
+        error.kind(),
+        clap::error::ErrorKind::MissingRequiredArgument
+    );
+}
+
+#[test]
+fn executing_mark_read_maps_its_locator_to_the_bridge_request() {
     let cli = Cli::try_parse_from([
         "apple-mail",
         "mark-read",
@@ -220,6 +300,7 @@ fn mark_read_command_maps_its_locator_to_the_bridge_request() {
         "Inbox",
         "--id",
         "42",
+        "--execute",
     ])
     .expect("mark-read command should parse");
     let request = MailRequest::from(cli.command());
@@ -236,7 +317,7 @@ fn mark_read_command_maps_its_locator_to_the_bridge_request() {
 }
 
 #[test]
-fn move_command_maps_locator_and_destination_to_the_bridge_request() {
+fn executing_move_maps_locator_and_destination_to_the_bridge_request() {
     let cli = Cli::try_parse_from([
         "apple-mail",
         "move",
@@ -248,6 +329,7 @@ fn move_command_maps_locator_and_destination_to_the_bridge_request() {
         "42",
         "--to",
         "Archive/2026",
+        "--execute",
     ])
     .expect("move command should parse");
     let request = MailRequest::from(cli.command());

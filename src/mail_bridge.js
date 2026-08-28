@@ -119,9 +119,14 @@ function searchMessages(mail, request) {
 
 function getMessage(mail, request) {
   const locator = requireLocator(request);
-  const maxBodyBytes = requireInteger(request.max_body_bytes, "max_body_bytes", 1, 1_000_000);
+  const includeBody = requireBoolean(request.include_body, "include_body");
   const message = resolveMessage(mail, locator);
   const summary = summarizeMessage(message);
+  if (!includeBody) {
+    return summary;
+  }
+
+  const maxBodyBytes = requireInteger(request.max_body_bytes, "max_body_bytes", 1, 1_000_000);
   const body = truncateUtf8(String(message.content()), maxBodyBytes);
   summary.body = body.text;
   summary.body_truncated = body.isTruncated;
@@ -327,6 +332,13 @@ function optionalText(value, field, maxLength) {
 function requireInteger(value, field, minimum, maximum) {
   if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
     fail("invalid_request", field + " must be an integer in the supported range");
+  }
+  return value;
+}
+
+function requireBoolean(value, field) {
+  if (typeof value !== "boolean") {
+    fail("invalid_request", field + " must be a boolean");
   }
   return value;
 }
