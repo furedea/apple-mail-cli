@@ -196,6 +196,27 @@ mod tests {
     }
 
     #[cfg(target_os = "macos")]
+    fn run_jxa_harness(harness: &str) -> String {
+        let source = format!("{JXA_SOURCE}\n{harness}");
+        let output = run_process(
+            Path::new(OSASCRIPT_PATH),
+            &["-l", "JavaScript", "-e", &source],
+            DEFAULT_TIMEOUT,
+        )
+        .expect("JXA harness should run");
+
+        assert!(
+            output.status.success(),
+            "JXA harness failed: {}",
+            bounded_lossy_text(&output.stderr),
+        );
+        String::from_utf8(output.stdout)
+            .expect("JXA output should be UTF-8")
+            .trim()
+            .to_owned()
+    }
+
+    #[cfg(target_os = "macos")]
     #[test]
     fn message_mailbox_paths_are_relative_to_their_accounts() {
         const HARNESS: &str = r#"
@@ -218,21 +239,91 @@ run = function () {
   return mailboxPath(mailbox);
 };
 "#;
-        let source = format!("{JXA_SOURCE}\n{HARNESS}");
 
-        let output = run_process(
-            Path::new(OSASCRIPT_PATH),
-            &["-l", "JavaScript", "-e", &source],
-            DEFAULT_TIMEOUT,
-        )
-        .expect("JXA path harness should run");
+        assert_eq!(run_jxa_harness(HARNESS), "/Projects/Inbox");
+    }
 
-        assert!(output.status.success());
-        assert_eq!(
-            String::from_utf8(output.stdout)
-                .expect("JXA output should be UTF-8")
-                .trim(),
-            "/Projects/Inbox",
-        );
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn move_reports_success_when_the_provider_changes_the_local_id() {
+        const HARNESS: &str = r#"
+run = function () {
+  let destinationMessages = [];
+  let account;
+  let sourceMailbox;
+  let destinationMailbox;
+
+  function messageCollection(messages) {
+    return {
+      whose: function (query) {
+        return function () {
+          return messages().filter(function (message) {
+            if (query.id !== undefined) {
+              return Number(message.id()) === Number(query.id);
+            }
+            if (query.messageId !== undefined) {
+              return String(message.messageId()) === String(query.messageId);
+            }
+            return false;
+          });
+        };
+      },
+    };
+  }
+
+  const sourceMessage = {
+    id: function () { return 8625; },
+    messageId: function () { return "stable@example.com"; },
+  };
+  const movedMessage = {
+    id: function () { return 8626; },
+    messageId: function () { return "stable@example.com"; },
+    mailbox: function () { return destinationMailbox; },
+    sender: function () { return "sender@example.com"; },
+    subject: function () { return "Subject"; },
+    dateReceived: function () { return new Date("2026-08-29T00:00:00Z"); },
+    readStatus: function () { return false; },
+    messageSize: function () { return 100; },
+  };
+
+  sourceMailbox = {
+    name: function () { return "Inbox"; },
+    account: function () { return account; },
+    container: function () { return account; },
+    mailboxes: function () { return []; },
+    messages: messageCollection(function () { return [sourceMessage]; }),
+  };
+  destinationMailbox = {
+    name: function () { return "Archive"; },
+    account: function () { return account; },
+    container: function () { return account; },
+    mailboxes: function () { return []; },
+    messages: messageCollection(function () { return destinationMessages; }),
+  };
+  account = {
+    id: function () { return "account-1"; },
+    name: function () { return "Exchange"; },
+    mailboxes: function () { return [sourceMailbox, destinationMailbox]; },
+  };
+  sourceMessage.mailbox = function () { return sourceMailbox; };
+
+  const mail = {
+    accounts: function () { return [account]; },
+    move: function () {
+      destinationMessages = [movedMessage];
+      return null;
+    },
+  };
+  const result = moveMessage(mail, {
+    account: "account-1",
+    mailbox: "/Inbox",
+    id: 8625,
+    destination: "/Archive",
+  });
+  return String(result.id);
+};
+"#;
+
+        assert_eq!(run_jxa_harness(HARNESS), "8626");
     }
 }

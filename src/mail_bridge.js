@@ -151,9 +151,11 @@ function moveMessage(mail, request) {
 
   const account = resolveAccount(mail, locator.account);
   const message = resolveMessageInAccount(account, locator);
+  const messageId = messageIdForVerification(message);
   const destination = resolveMailbox(account, destinationPath);
   const moved = mail.move(message, { to: destination });
-  const verified = findMessage(destination, locator.id);
+  const verified =
+    findMessage(destination, locator.id) || findMessageByMessageId(destination, messageId);
   if (verified) {
     return summarizeMessage(verified);
   }
@@ -222,6 +224,24 @@ function resolveMessageInAccount(account, locator) {
 function findMessage(mailbox, id) {
   const matches = mailbox.messages.whose({ id: id })();
   return matches.length === 0 ? null : matches[0];
+}
+
+function findMessageByMessageId(mailbox, messageId) {
+  if (!messageId) {
+    return null;
+  }
+  const matches = mailbox.messages.whose({ messageId: messageId })();
+  return matches.length === 0 ? null : matches[0];
+}
+
+function messageIdForVerification(message) {
+  try {
+    const value = message.messageId();
+    const text = value === null || value === undefined ? "" : String(value);
+    return text.length > 0 && text.length <= 2_048 ? text : null;
+  } catch (_) {
+    return null;
+  }
 }
 
 function resolveAccount(mail, id) {
