@@ -194,4 +194,45 @@ mod tests {
 
         assert!(matches!(result, Err(BridgeError::InvalidOutput(_))));
     }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn message_mailbox_paths_are_relative_to_their_accounts() {
+        const HARNESS: &str = r#"
+run = function () {
+  const account = {
+    id: function () { return "account-1"; },
+    name: function () { return "Exchange"; },
+  };
+  const parentMailbox = {
+    id: function () { return "mailbox-1"; },
+    name: function () { return "Projects"; },
+    account: function () { return account; },
+    container: function () { return account; },
+  };
+  const mailbox = {
+    name: function () { return "Inbox"; },
+    account: function () { return account; },
+    container: function () { return parentMailbox; },
+  };
+  return mailboxPath(mailbox);
+};
+"#;
+        let source = format!("{JXA_SOURCE}\n{HARNESS}");
+
+        let output = run_process(
+            Path::new(OSASCRIPT_PATH),
+            &["-l", "JavaScript", "-e", &source],
+            DEFAULT_TIMEOUT,
+        )
+        .expect("JXA path harness should run");
+
+        assert!(output.status.success());
+        assert_eq!(
+            String::from_utf8(output.stdout)
+                .expect("JXA output should be UTF-8")
+                .trim(),
+            "/Projects/Inbox",
+        );
+    }
 }

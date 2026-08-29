@@ -258,9 +258,13 @@ function findMailboxByName(mailboxes, name) {
 }
 
 function mailboxPath(mailbox) {
+  const accountId = String(mailbox.account().id());
   const segments = [];
   let current = mailbox;
   for (let depth = 0; depth <= 32; depth += 1) {
+    if (isAccount(current, accountId)) {
+      return encodeMailboxPath(segments);
+    }
     segments.unshift(String(current.name()));
     let parent;
     try {
@@ -275,6 +279,14 @@ function mailboxPath(mailbox) {
     current = parent;
   }
   fail("mailbox_depth_exceeded", "Mailbox nesting exceeds the supported depth");
+}
+
+function isAccount(value, accountId) {
+  try {
+    return typeof value.id === "function" && String(value.id()) === accountId;
+  } catch (_) {
+    return false;
+  }
 }
 
 function encodeMailboxPath(segments) {
