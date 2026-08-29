@@ -38,12 +38,16 @@ function parseRequest(argv) {
   if (!Array.isArray(argv) || argv.length !== 1) {
     fail("invalid_request", "Exactly one JSON request argument is required");
   }
+  const argument = argv[0];
+  if (argument === undefined) {
+    fail("invalid_request", "The request must be valid JSON");
+  }
 
   /** @type {unknown} */
   let request;
   try {
-    request = JSON.parse(argv[0]);
-  } catch (_) {
+    request = JSON.parse(argument);
+  } catch {
     fail("invalid_request", "The request must be valid JSON");
   }
   if (!request || Array.isArray(request) || typeof request !== "object") {
@@ -105,11 +109,10 @@ function appendMailboxes(mailboxes, parents, result, depth) {
   if (depth > 32) {
     fail("mailbox_depth_exceeded", "Mailbox nesting exceeds the supported depth");
   }
-  for (let index = 0; index < mailboxes.length; index += 1) {
+  for (const mailbox of mailboxes) {
     if (result.length >= 2_000) {
       fail("mailbox_count_exceeded", "Mailbox count exceeds the supported limit");
     }
-    const mailbox = mailboxes[index];
     const name = String(mailbox.name());
     const segments = parents.concat([name]);
     result.push({
@@ -142,13 +145,13 @@ function searchMessages(mail, request) {
   const query = requireText(request.query, "query", 1_024);
   const limit = requireInteger(request.limit, "limit", 1, 200);
   const accountId = optionalText(request.account, "account", 1_024);
-  const mailboxPath = optionalText(request.mailbox, "mailbox", 4_096);
-  if (mailboxPath && !accountId) {
+  const requestedMailboxPath = optionalText(request.mailbox, "mailbox", 4_096);
+  if (requestedMailboxPath && !accountId) {
     fail("invalid_request", "account is required when mailbox is specified");
   }
 
-  const source = mailboxPath
-    ? resolveMailbox(resolveAccount(mail, /** @type {string} */ (accountId)), mailboxPath)
+  const source = requestedMailboxPath
+    ? resolveMailbox(resolveAccount(mail, /** @type {string} */ (accountId)), requestedMailboxPath)
     : mail.inbox();
   const messages = source.messages.whose({
     _or: [{ subject: { _contains: query } }, { sender: { _contains: query } }],
@@ -217,7 +220,7 @@ function moveMessage(mail, request) {
     if (moved && mailboxPath(moved.mailbox()) === destinationPath) {
       return summarizeMessage(moved);
     }
-  } catch (_) {
+  } catch {
     // Some providers invalidate the original object specifier after a move.
   }
   fail(
@@ -234,8 +237,7 @@ function moveMessage(mail, request) {
  */
 function summarizeAndLimit(messages, accountId, limit) {
   const summaries = [];
-  for (let index = 0; index < messages.length; index += 1) {
-    const message = messages[index];
+  for (const message of messages) {
     if (accountId && String(message.mailbox().account().id()) !== accountId) {
       continue;
     }
@@ -307,7 +309,8 @@ function resolveMessageInAccount(account, locator) {
  */
 function findMessage(mailbox, id) {
   const matches = mailbox.messages.whose({ id: id })();
-  return matches.length === 0 ? null : matches[0];
+  const message = matches[0];
+  return message === undefined ? null : message;
 }
 
 /**
@@ -320,7 +323,8 @@ function findMessageByMessageId(mailbox, messageId) {
     return null;
   }
   const matches = mailbox.messages.whose({ messageId: messageId })();
-  return matches.length === 0 ? null : matches[0];
+  const message = matches[0];
+  return message === undefined ? null : message;
 }
 
 /**
@@ -332,7 +336,7 @@ function messageIdForVerification(message) {
     const value = message.messageId();
     const text = value === null || value === undefined ? "" : String(value);
     return text.length > 0 && text.length <= 2_048 ? text : null;
-  } catch (_) {
+  } catch {
     return null;
   }
 }
@@ -344,9 +348,9 @@ function messageIdForVerification(message) {
  */
 function resolveAccount(mail, id) {
   const accounts = mail.accounts();
-  for (let index = 0; index < accounts.length; index += 1) {
-    if (String(accounts[index].id()) === id) {
-      return accounts[index];
+  for (const account of accounts) {
+    if (String(account.id()) === id) {
+      return account;
     }
   }
   fail("account_not_found", "No Mail account matches the supplied identifier");
@@ -361,8 +365,8 @@ function resolveMailbox(account, path) {
   const segments = decodeMailboxPath(path);
   let candidates = account.mailboxes();
   let current = null;
-  for (let depth = 0; depth < segments.length; depth += 1) {
-    current = findMailboxByName(candidates, segments[depth]);
+  for (const segment of segments) {
+    current = findMailboxByName(candidates, segment);
     if (!current) {
       fail("mailbox_not_found", "No mailbox matches the supplied path");
     }
@@ -377,9 +381,9 @@ function resolveMailbox(account, path) {
  * @returns {MailMailbox | null}
  */
 function findMailboxByName(mailboxes, name) {
-  for (let index = 0; index < mailboxes.length; index += 1) {
-    if (String(mailboxes[index].name()) === name) {
-      return mailboxes[index];
+  for (const mailbox of mailboxes) {
+    if (String(mailbox.name()) === name) {
+      return mailbox;
     }
   }
   return null;
@@ -406,7 +410,7 @@ function mailboxPath(mailbox) {
         return encodeMailboxPath(segments);
       }
       parent.name();
-    } catch (_) {
+    } catch {
       return encodeMailboxPath(segments);
     }
     current = parent;
@@ -422,7 +426,7 @@ function mailboxPath(mailbox) {
 function isAccount(value, accountId) {
   try {
     return typeof value.id === "function" && String(value.id()) === accountId;
-  } catch (_) {
+  } catch {
     return false;
   }
 }
@@ -550,7 +554,7 @@ function isoDate(value) {
   try {
     const date = /** @type {{toISOString: () => unknown}} */ (value);
     return boundedString(date.toISOString(), 128);
-  } catch (_) {
+  } catch {
     return boundedString(value, 128);
   }
 }

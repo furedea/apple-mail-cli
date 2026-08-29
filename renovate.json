@@ -23,6 +23,12 @@
       "matchDatasources": ["crate"],
       "minimumReleaseAge": "7 days",
       "internalChecksFilter": "strict"
+    },
+    {
+      "description": "Wait for npm packages to satisfy pnpm minimumReleaseAge.",
+      "matchDatasources": ["npm"],
+      "minimumReleaseAge": "7 days",
+      "internalChecksFilter": "strict"
     }
   ],
   "lockFileMaintenance": {

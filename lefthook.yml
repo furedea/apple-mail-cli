@@ -21,7 +21,14 @@ pre-commit:
     clippy:
       glob: "*.rs"
       run: cargo clippy -- -D warnings
+    jxa-format:
+      glob: "*.{js,ts,json,yaml}"
+      run: pnpm run format:check
+    jxa-lint:
+      glob: "*.{js,ts}"
+      run: pnpm run lint
     typecheck:
-      run: tsc --project tsconfig.json
+      glob: "*.{js,ts,json}"
+      run: pnpm run typecheck
     ls-lint:
       run: ls_lint

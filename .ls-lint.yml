@@ -1,5 +1,6 @@
 ls:
   .dir: regex:\.?[a-z0-9]+(-[a-z0-9]+)*
+  .yaml: regex:[a-z0-9]*([._][a-z0-9]+)* | regex:pnpm-(lock|workspace)
   .*: regex:[a-z0-9]*([._][a-z0-9]+)*
 
 ignore:
@@ -14,3 +15,5 @@ ignore:
   - Cargo.lock
 
   - target
+  - node_modules
+  - .pnpm-store

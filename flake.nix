@@ -44,10 +44,11 @@
           lefthook
           ls-lint
           nixfmt-rfc-style
+          nodejs_22
+          pnpm
           rustc
           rustfmt
           statix
-          typescript
         ];
       };
     };
