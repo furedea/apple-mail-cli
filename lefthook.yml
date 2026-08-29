@@ -21,5 +21,7 @@ pre-commit:
     clippy:
       glob: "*.rs"
       run: cargo clippy -- -D warnings
+    typecheck:
+      run: tsc --project tsconfig.json
     ls-lint:
       run: ls_lint

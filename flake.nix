@@ -47,6 +47,7 @@
           rustc
           rustfmt
           statix
+          typescript
         ];
       };
     };

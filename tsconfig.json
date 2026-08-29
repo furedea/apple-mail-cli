@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "lib": ["ES2021"],
+    "module": "none",
+    "noEmit": true,
+    "strict": true,
+    "target": "ES2021",
+    "types": []
+  },
+  "files": ["src/mail_bridge_types.d.ts", "src/mail_bridge.js"]
+}

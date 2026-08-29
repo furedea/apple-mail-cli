@@ -1,3 +1,9 @@
+// @ts-check
+
+/**
+ * @param {string[]} argv
+ * @returns {string}
+ */
 function run(argv) {
   try {
     const request = parseRequest(argv);
@@ -13,6 +19,7 @@ function run(argv) {
   }
 }
 
+/** @type {Readonly<Record<string, BridgeHandler>>} */
 const HANDLERS = {
   accounts: listAccounts,
   mailboxes: listMailboxes,
@@ -23,11 +30,16 @@ const HANDLERS = {
   move: moveMessage,
 };
 
+/**
+ * @param {string[]} argv
+ * @returns {BridgeRequest}
+ */
 function parseRequest(argv) {
   if (!Array.isArray(argv) || argv.length !== 1) {
     fail("invalid_request", "Exactly one JSON request argument is required");
   }
 
+  /** @type {unknown} */
   let request;
   try {
     request = JSON.parse(argv[0]);
@@ -37,10 +49,15 @@ function parseRequest(argv) {
   if (!request || Array.isArray(request) || typeof request !== "object") {
     fail("invalid_request", "The request must be a JSON object");
   }
-  requireText(request.action, "action", 64);
-  return request;
+  const record = /** @type {Record<string, unknown>} */ (request);
+  requireText(record.action, "action", 64);
+  return /** @type {BridgeRequest} */ (/** @type {unknown} */ (record));
 }
 
+/**
+ * @param {MailApplication} mail
+ * @returns {Array<Record<string, unknown>>}
+ */
 function listAccounts(mail) {
   const accounts = mail.accounts();
   if (accounts.length > 256) {
@@ -62,9 +79,14 @@ function listAccounts(mail) {
   });
 }
 
+/**
+ * @param {MailApplication} mail
+ * @param {BridgeRequest} request
+ * @returns {MailboxSummary[]}
+ */
 function listMailboxes(mail, request) {
   const account = resolveAccount(mail, requireText(request.account, "account", 1_024));
-  const result = [];
+  const result = /** @type {MailboxSummary[]} */ ([]);
   appendMailboxes(account.mailboxes(), [], result, 0);
   result.sort(function (left, right) {
     return left.path.localeCompare(right.path);
@@ -72,6 +94,13 @@ function listMailboxes(mail, request) {
   return result;
 }
 
+/**
+ * @param {MailMailbox[]} mailboxes
+ * @param {string[]} parents
+ * @param {MailboxSummary[]} result
+ * @param {number} depth
+ * @returns {void}
+ */
 function appendMailboxes(mailboxes, parents, result, depth) {
   if (depth > 32) {
     fail("mailbox_depth_exceeded", "Mailbox nesting exceeds the supported depth");
@@ -92,6 +121,11 @@ function appendMailboxes(mailboxes, parents, result, depth) {
   }
 }
 
+/**
+ * @param {MailApplication} mail
+ * @param {BridgeRequest} request
+ * @returns {MessageSummary[]}
+ */
 function listUnread(mail, request) {
   const limit = requireInteger(request.limit, "limit", 1, 200);
   const accountId = optionalText(request.account, "account", 1_024);
@@ -99,6 +133,11 @@ function listUnread(mail, request) {
   return summarizeAndLimit(messages, accountId, limit);
 }
 
+/**
+ * @param {MailApplication} mail
+ * @param {BridgeRequest} request
+ * @returns {MessageSummary[]}
+ */
 function searchMessages(mail, request) {
   const query = requireText(request.query, "query", 1_024);
   const limit = requireInteger(request.limit, "limit", 1, 200);
@@ -109,7 +148,7 @@ function searchMessages(mail, request) {
   }
 
   const source = mailboxPath
-    ? resolveMailbox(resolveAccount(mail, accountId), mailboxPath)
+    ? resolveMailbox(resolveAccount(mail, /** @type {string} */ (accountId)), mailboxPath)
     : mail.inbox();
   const messages = source.messages.whose({
     _or: [{ subject: { _contains: query } }, { sender: { _contains: query } }],
@@ -117,6 +156,11 @@ function searchMessages(mail, request) {
   return summarizeAndLimit(messages, accountId, limit);
 }
 
+/**
+ * @param {MailApplication} mail
+ * @param {BridgeRequest} request
+ * @returns {MessageSummary}
+ */
 function getMessage(mail, request) {
   const locator = requireLocator(request);
   const includeBody = requireBoolean(request.include_body, "include_body");
@@ -133,15 +177,25 @@ function getMessage(mail, request) {
   return summary;
 }
 
+/**
+ * @param {MailApplication} mail
+ * @param {BridgeRequest} request
+ * @returns {MessageSummary}
+ */
 function markRead(mail, request) {
   const message = resolveMessage(mail, requireLocator(request));
-  message.readStatus = true;
+  /** @type {{readStatus: boolean}} */ (/** @type {unknown} */ (message)).readStatus = true;
   if (!message.readStatus()) {
     fail("mutation_unverified", "Mail did not confirm the read status change");
   }
   return summarizeMessage(message);
 }
 
+/**
+ * @param {MailApplication} mail
+ * @param {BridgeRequest} request
+ * @returns {MessageSummary}
+ */
 function moveMessage(mail, request) {
   const locator = requireLocator(request);
   const destinationPath = requireText(request.destination, "destination", 4_096);
@@ -172,6 +226,12 @@ function moveMessage(mail, request) {
   );
 }
 
+/**
+ * @param {MailMessage[]} messages
+ * @param {string | null} accountId
+ * @param {number} limit
+ * @returns {MessageSummary[]}
+ */
 function summarizeAndLimit(messages, accountId, limit) {
   const summaries = [];
   for (let index = 0; index < messages.length; index += 1) {
@@ -189,10 +249,19 @@ function summarizeAndLimit(messages, accountId, limit) {
   return summaries;
 }
 
+/**
+ * @param {MessageSummary} left
+ * @param {MessageSummary} right
+ * @returns {number}
+ */
 function compareNewestFirst(left, right) {
   return right.date_received.localeCompare(left.date_received);
 }
 
+/**
+ * @param {MailMessage} message
+ * @returns {MessageSummary}
+ */
 function summarizeMessage(message) {
   const mailbox = message.mailbox();
   return {
@@ -208,10 +277,20 @@ function summarizeMessage(message) {
   };
 }
 
+/**
+ * @param {MailApplication} mail
+ * @param {MessageLocator} locator
+ * @returns {MailMessage}
+ */
 function resolveMessage(mail, locator) {
   return resolveMessageInAccount(resolveAccount(mail, locator.account), locator);
 }
 
+/**
+ * @param {MailAccount} account
+ * @param {MessageLocator} locator
+ * @returns {MailMessage}
+ */
 function resolveMessageInAccount(account, locator) {
   const mailbox = resolveMailbox(account, locator.mailbox);
   const message = findMessage(mailbox, locator.id);
@@ -221,11 +300,21 @@ function resolveMessageInAccount(account, locator) {
   return message;
 }
 
+/**
+ * @param {MailMailbox} mailbox
+ * @param {number} id
+ * @returns {MailMessage | null}
+ */
 function findMessage(mailbox, id) {
   const matches = mailbox.messages.whose({ id: id })();
   return matches.length === 0 ? null : matches[0];
 }
 
+/**
+ * @param {MailMailbox} mailbox
+ * @param {string | null} messageId
+ * @returns {MailMessage | null}
+ */
 function findMessageByMessageId(mailbox, messageId) {
   if (!messageId) {
     return null;
@@ -234,6 +323,10 @@ function findMessageByMessageId(mailbox, messageId) {
   return matches.length === 0 ? null : matches[0];
 }
 
+/**
+ * @param {MailMessage} message
+ * @returns {string | null}
+ */
 function messageIdForVerification(message) {
   try {
     const value = message.messageId();
@@ -244,6 +337,11 @@ function messageIdForVerification(message) {
   }
 }
 
+/**
+ * @param {MailApplication} mail
+ * @param {string} id
+ * @returns {MailAccount}
+ */
 function resolveAccount(mail, id) {
   const accounts = mail.accounts();
   for (let index = 0; index < accounts.length; index += 1) {
@@ -254,6 +352,11 @@ function resolveAccount(mail, id) {
   fail("account_not_found", "No Mail account matches the supplied identifier");
 }
 
+/**
+ * @param {MailAccount} account
+ * @param {string} path
+ * @returns {MailMailbox}
+ */
 function resolveMailbox(account, path) {
   const segments = decodeMailboxPath(path);
   let candidates = account.mailboxes();
@@ -265,9 +368,14 @@ function resolveMailbox(account, path) {
     }
     candidates = current.mailboxes();
   }
-  return current;
+  return /** @type {MailMailbox} */ (current);
 }
 
+/**
+ * @param {MailMailbox[]} mailboxes
+ * @param {string} name
+ * @returns {MailMailbox | null}
+ */
 function findMailboxByName(mailboxes, name) {
   for (let index = 0; index < mailboxes.length; index += 1) {
     if (String(mailboxes[index].name()) === name) {
@@ -277,9 +385,14 @@ function findMailboxByName(mailboxes, name) {
   return null;
 }
 
+/**
+ * @param {MailMailbox} mailbox
+ * @returns {string}
+ */
 function mailboxPath(mailbox) {
   const accountId = String(mailbox.account().id());
   const segments = [];
+  /** @type {MailContainer} */
   let current = mailbox;
   for (let depth = 0; depth <= 32; depth += 1) {
     if (isAccount(current, accountId)) {
@@ -301,6 +414,11 @@ function mailboxPath(mailbox) {
   fail("mailbox_depth_exceeded", "Mailbox nesting exceeds the supported depth");
 }
 
+/**
+ * @param {MailContainer} value
+ * @param {string} accountId
+ * @returns {value is MailAccount}
+ */
 function isAccount(value, accountId) {
   try {
     return typeof value.id === "function" && String(value.id()) === accountId;
@@ -309,6 +427,10 @@ function isAccount(value, accountId) {
   }
 }
 
+/**
+ * @param {string[]} segments
+ * @returns {string}
+ */
 function encodeMailboxPath(segments) {
   const path = "/" + segments.map(escapePathSegment).join("/");
   if (path.length > 4_096) {
@@ -317,6 +439,10 @@ function encodeMailboxPath(segments) {
   return path;
 }
 
+/**
+ * @param {string} path
+ * @returns {string[]}
+ */
 function decodeMailboxPath(path) {
   requireText(path, "mailbox", 4_096);
   const encoded = path[0] === "/" ? path.slice(1).split("/") : path.split("/");
@@ -331,10 +457,18 @@ function decodeMailboxPath(path) {
   return encoded.map(unescapePathSegment);
 }
 
+/**
+ * @param {string} segment
+ * @returns {string}
+ */
 function escapePathSegment(segment) {
   return segment.replace(/~/g, "~0").replace(/\//g, "~1");
 }
 
+/**
+ * @param {string} segment
+ * @returns {string}
+ */
 function unescapePathSegment(segment) {
   if (/~(?:[^01]|$)/.test(segment)) {
     fail("invalid_request", "Mailbox path contains an invalid escape sequence");
@@ -342,6 +476,10 @@ function unescapePathSegment(segment) {
   return segment.replace(/~1/g, "/").replace(/~0/g, "~");
 }
 
+/**
+ * @param {BridgeRequest} request
+ * @returns {MessageLocator}
+ */
 function requireLocator(request) {
   return {
     account: requireText(request.account, "account", 1_024),
@@ -350,6 +488,12 @@ function requireLocator(request) {
   };
 }
 
+/**
+ * @param {unknown} value
+ * @param {string} field
+ * @param {number} maxLength
+ * @returns {string}
+ */
 function requireText(value, field, maxLength) {
   if (typeof value !== "string" || value.length === 0 || value.length > maxLength) {
     fail("invalid_request", field + " must be a non-empty bounded string");
@@ -357,17 +501,40 @@ function requireText(value, field, maxLength) {
   return value;
 }
 
+/**
+ * @param {unknown} value
+ * @param {string} field
+ * @param {number} maxLength
+ * @returns {string | null}
+ */
 function optionalText(value, field, maxLength) {
   return value === undefined ? null : requireText(value, field, maxLength);
 }
 
+/**
+ * @param {unknown} value
+ * @param {string} field
+ * @param {number} minimum
+ * @param {number} maximum
+ * @returns {number}
+ */
 function requireInteger(value, field, minimum, maximum) {
-  if (!Number.isSafeInteger(value) || value < minimum || value > maximum) {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < minimum ||
+    value > maximum
+  ) {
     fail("invalid_request", field + " must be an integer in the supported range");
   }
   return value;
 }
 
+/**
+ * @param {unknown} value
+ * @param {string} field
+ * @returns {boolean}
+ */
 function requireBoolean(value, field) {
   if (typeof value !== "boolean") {
     fail("invalid_request", field + " must be a boolean");
@@ -375,19 +542,34 @@ function requireBoolean(value, field) {
   return value;
 }
 
+/**
+ * @param {JxaValue} value
+ * @returns {string}
+ */
 function isoDate(value) {
   try {
-    return boundedString(value.toISOString(), 128);
+    const date = /** @type {{toISOString: () => unknown}} */ (value);
+    return boundedString(date.toISOString(), 128);
   } catch (_) {
     return boundedString(value, 128);
   }
 }
 
+/**
+ * @param {unknown} value
+ * @param {number} maxLength
+ * @returns {string}
+ */
 function boundedString(value, maxLength) {
   const text = String(value);
   return text.length > maxLength ? text.slice(0, maxLength) : text;
 }
 
+/**
+ * @param {string} value
+ * @param {number} maxBytes
+ * @returns {TruncatedText}
+ */
 function truncateUtf8(value, maxBytes) {
   let bytes = 0;
   let end = 0;
@@ -414,20 +596,31 @@ function truncateUtf8(value, maxBytes) {
   return { text: value.slice(0, end), isTruncated: end < value.length };
 }
 
+/**
+ * @param {string} code
+ * @param {string} message
+ * @returns {never}
+ */
 function fail(code, message) {
-  const error = new Error(message);
+  const error = /** @type {Error & {bridgeCode?: string}} */ (new Error(message));
   error.bridgeCode = code;
   throw error;
 }
 
+/**
+ * @param {unknown} error
+ * @returns {Record<string, unknown>}
+ */
 function errorEnvelope(error) {
-  if (error && error.bridgeCode) {
+  const failure =
+    error && typeof error === "object" ? /** @type {BridgeErrorLike} */ (error) : null;
+  if (failure && failure.bridgeCode) {
     return {
       ok: false,
-      error: { code: String(error.bridgeCode), message: String(error.message) },
+      error: { code: String(failure.bridgeCode), message: String(failure.message) },
     };
   }
-  const number = error && typeof error.errorNumber === "number" ? error.errorNumber : null;
+  const number = failure && typeof failure.errorNumber === "number" ? failure.errorNumber : null;
   if (number === -1743) {
     return {
       ok: false,
