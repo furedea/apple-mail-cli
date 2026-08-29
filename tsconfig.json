@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "ES2020",
+    "moduleDetection": "legacy",
+    "lib": ["ES2021"],
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "noEmit": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "types": []
+  },
+  "files": ["src/mail_bridge_types.d.ts", "src/mail_bridge.js"]
+}

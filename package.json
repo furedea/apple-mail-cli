@@ -1,0 +1,20 @@
+{
+  "name": "apple-mail-cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "format": "oxfmt src/mail_bridge.js src/mail_bridge_types.d.ts tsconfig.json package.json pnpm-workspace.yaml .oxfmtrc.json .oxlintrc.json",
+    "format:check": "oxfmt --check src/mail_bridge.js src/mail_bridge_types.d.ts tsconfig.json package.json pnpm-workspace.yaml .oxfmtrc.json .oxlintrc.json",
+    "lint": "oxlint --deny-warnings --report-unused-disable-directives src/mail_bridge.js",
+    "lint:fix": "oxlint --fix --deny-warnings --report-unused-disable-directives src/mail_bridge.js",
+    "typecheck": "tsc --project tsconfig.json",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck"
+  },
+  "devDependencies": {
+    "oxfmt": "0.45.0",
+    "oxlint": "1.60.0",
+    "typescript": "6.0.3"
+  },
+  "packageManager": "pnpm@10.33.0"
+}

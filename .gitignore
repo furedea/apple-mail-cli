@@ -12,3 +12,5 @@ logs/
 .idea/
 
 /target
+node_modules/
+.pnpm-store/
