@@ -13,7 +13,7 @@
       pkgs = import nixpkgs { inherit system; };
       package = pkgs.rustPlatform.buildRustPackage {
         pname = "apple-mail-cli";
-        version = "0.1.0";
+        inherit ((builtins.fromTOML (builtins.readFile ./Cargo.toml)).package) version;
         src = ./.;
         cargoLock.lockFile = ./Cargo.lock;
         meta = {

@@ -29,3 +29,26 @@ pedantic = { level = "warn", priority = -1 }
 dbg_macro = "deny"
 todo = "deny"
 unimplemented = "deny"
+
+[profile.dist]
+inherits = "release"
+lto = "thin"
+
+# Config for 'dist'
+[workspace.metadata.dist]
+# The preferred dist version to use in CI (Cargo.toml SemVer syntax)
+cargo-dist-version = "0.30.2"
+# CI backends to support
+ci = "github"
+# This repository keeps a custom Release Please workflow and uses dist only for
+# artifact and installer generation inside that workflow.
+allow-dirty = ["ci"]
+# The installers to generate for each app
+installers = ["shell"]
+# Mail automation needs Mail.app and /usr/bin/osascript, so only Apple Silicon
+# macOS is a meaningful target.
+targets = ["aarch64-apple-darwin"]
+# Path that installers should place binaries in
+install-path = "CARGO_HOME"
+# Whether to install an updater program
+install-updater = false

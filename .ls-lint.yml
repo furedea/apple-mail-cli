@@ -11,6 +11,9 @@ ignore:
   - docs/logs
 
   - README.md
+  - CONTRIBUTING.md
+  - CHANGELOG.md
+  - release-please-config.json
   - Cargo.toml
   - Cargo.lock
 
