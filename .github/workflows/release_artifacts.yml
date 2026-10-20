@@ -176,4 +176,4 @@ jobs:
           # Publishing without make_latest marks the release latest. An older tag's run
           # can finish last, so let GitHub pick latest by date and semantic version.
           release_id="$(gh release view "$TAG_NAME" --json databaseId --jq .databaseId)"
-          gh api -X PATCH "repos/$GH_REPO/releases/$release_id" -f draft=false -f make_latest=legacy
+          gh api -X PATCH "repos/$GH_REPO/releases/$release_id" -F draft=false -f make_latest=legacy
