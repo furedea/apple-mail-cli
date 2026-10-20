@@ -54,12 +54,18 @@ dependency review, and CodeQL.
 
 Releases are managed by Release Please. Merging the release PR updates
 `Cargo.toml`, `Cargo.lock`, `.release-please-manifest.json`, and `CHANGELOG.md`,
-then publishes a GitHub Release with the `aarch64-apple-darwin` cargo-dist
-archive, its checksum, a shell installer, and build provenance attestations.
+tags the merge commit, and creates a draft GitHub Release. The release workflow
+then tests and builds the `aarch64-apple-darwin` cargo-dist archive, attests its
+provenance, and uploads the archive, its checksum, and a shell installer. The
+release is published only after every step succeeds; if one fails, it stays a
+draft.
 
-If the release assets need to be rebuilt for an existing tag, run the
-`Release Please` workflow manually with the tag name, for example:
+To rebuild the assets for an existing tag, run the workflow on that tag so the
+attestation records the tagged commit:
 
-```text
-apple-mail-cli-v0.1.1
+```bash
+tag=apple-mail-cli-v0.1.1
+gh workflow run release_please.yml --ref "$tag" -f tag_name="$tag"
 ```
+
+The workflow fails before building when it is started from any other ref.

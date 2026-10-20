@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: Existing release tag to rebuild artifacts for
+        description: Existing release tag to rebuild artifacts for; run the workflow on the same tag
         required: true
         type: string
 
@@ -72,6 +72,23 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ env.TAG_NAME }}
+
+      - name: Verify release ref
+        run: |
+          set -euo pipefail
+
+          # Provenance must name the tagged commit, so manual rebuilds run on the tag.
+          if [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" && "$GITHUB_REF" != "refs/tags/$TAG_NAME" ]]; then
+            echo "Run manual rebuilds on the tag itself:"
+            echo "  gh workflow run release_please.yml --ref $TAG_NAME -f tag_name=$TAG_NAME"
+            exit 1
+          fi
+
+          head_sha="$(git rev-parse HEAD)"
+          if [[ "$head_sha" != "$GITHUB_SHA" ]]; then
+            echo "$TAG_NAME points to $head_sha, but this run is for $GITHUB_SHA."
+            exit 1
+          fi
 
       - name: Install Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1.17.0
@@ -173,3 +190,8 @@ jobs:
           fi
 
           gh release upload "$TAG_NAME" "${artifact_paths[@]}" --clobber
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$TAG_NAME" --draft=false
