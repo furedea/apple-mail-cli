@@ -3,6 +3,9 @@ packages:
 
 catalogs: {}
 
+overrides:
+  tinypool: "2.1.2"
+
 auditConfig:
   ignoreCves: []
 
