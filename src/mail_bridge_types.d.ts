@@ -43,6 +43,11 @@ interface TruncatedText {
   text: string;
 }
 
+interface IntegerRange {
+  minimum: number;
+  maximum: number;
+}
+
 interface BridgeErrorLike {
   bridgeCode?: unknown;
   errorNumber?: unknown;

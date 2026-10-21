@@ -7,6 +7,7 @@
   "plugins": ["typescript", "jsdoc"],
   "ignorePatterns": ["node_modules/**", "target/**"],
   "rules": {
+    "complexity": ["error", { "max": 10 }],
     "eslint/no-eval": "error",
     "eslint/no-unused-vars": [
       "error",
@@ -15,6 +16,17 @@
       }
     ],
     "eslint/no-with": "error",
+    "max-depth": ["error", { "max": 2 }],
+    "max-lines": ["error", { "max": 500 }],
+    "max-params": ["error", { "max": 3 }],
     "typescript/no-implied-eval": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["src/mail_bridge_lookup.js", "src/mail_bridge_values.js"],
+      "rules": {
+        "eslint/no-unused-vars": "off"
+      }
+    }
+  ]
 }

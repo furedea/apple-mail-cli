@@ -29,6 +29,36 @@ fn application_rejects_a_bridge_response_without_an_envelope() {
 }
 
 #[test]
+fn application_describes_a_bridge_response_that_is_not_json() {
+    let cli =
+        Cli::try_parse_from(["apple-mail", "accounts"]).expect("accounts command should parse");
+    let mut bridge = FakeBridge::returning("not json");
+
+    let error = run(cli.command(), &mut bridge).expect_err("invalid JSON must be rejected");
+
+    assert!(
+        error
+            .to_string()
+            .starts_with("bridge returned invalid JSON: ")
+    );
+}
+
+#[test]
+fn application_describes_an_envelope_that_is_not_an_object() {
+    let cli =
+        Cli::try_parse_from(["apple-mail", "accounts"]).expect("accounts command should parse");
+    let mut bridge = FakeBridge::returning("[]");
+
+    let error =
+        run(cli.command(), &mut bridge).expect_err("a non-object envelope must be rejected");
+
+    assert_eq!(
+        error.to_string(),
+        "invalid response envelope: response envelope must be an object"
+    );
+}
+
+#[test]
 fn application_returns_a_failed_bridge_envelope_as_an_error() {
     let cli =
         Cli::try_parse_from(["apple-mail", "accounts"]).expect("accounts command should parse");

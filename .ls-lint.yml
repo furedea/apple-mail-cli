@@ -1,7 +1,13 @@
 ls:
   .dir: regex:\.?[a-z0-9]+(-[a-z0-9]+)*
-  .yaml: regex:[a-z0-9]*([._][a-z0-9]+)* | regex:pnpm-(lock|workspace)
-  .*: regex:[a-z0-9]*([._][a-z0-9]+)*
+  <<: &files
+    .yaml: regex:[a-z0-9]*([._][a-z0-9]+)* | regex:pnpm-(lock|workspace)
+    .*: regex:[a-z0-9]*([._][a-z0-9]+)*
+  # Rust module directories are identifiers, so they use snake_case.
+  # A nested block replaces the root rules, so it re-merges the file rules.
+  src:
+    <<: *files
+    .dir: regex:[a-z0-9]+(_[a-z0-9]+)*
 
 ignore:
   - .git

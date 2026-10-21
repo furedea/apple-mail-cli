@@ -66,6 +66,28 @@ fn search_command_rejects_a_query_above_the_bridge_limit() {
 }
 
 #[test]
+fn search_command_explains_why_an_oversized_query_is_rejected() {
+    let query = "x".repeat(1_025);
+    let error = Cli::try_parse_from(["apple-mail", "search", &query])
+        .expect_err("an oversized query must be rejected");
+
+    assert!(
+        error
+            .to_string()
+            .contains("value must not exceed 1024 bytes")
+    );
+}
+
+#[test]
+fn search_command_rejects_an_empty_query() {
+    let error = Cli::try_parse_from(["apple-mail", "search", ""])
+        .expect_err("an empty query must be rejected");
+
+    assert_eq!(error.kind(), clap::error::ErrorKind::ValueValidation);
+    assert!(error.to_string().contains("value must not be empty"));
+}
+
+#[test]
 fn get_command_requires_a_complete_message_locator() {
     let cli = Cli::try_parse_from([
         "apple-mail",

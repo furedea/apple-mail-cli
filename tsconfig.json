@@ -12,5 +12,10 @@
     "exactOptionalPropertyTypes": true,
     "types": []
   },
-  "files": ["src/mail_bridge_types.d.ts", "src/mail_bridge.js"]
+  "files": [
+    "src/mail_bridge_types.d.ts",
+    "src/mail_bridge.js",
+    "src/mail_bridge_lookup.js",
+    "src/mail_bridge_values.js"
+  ]
 }

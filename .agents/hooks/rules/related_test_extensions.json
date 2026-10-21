@@ -1,0 +1,3 @@
+{
+  "src/mail_bridge*": ["src/osascript.rs"]
+}
