@@ -250,12 +250,16 @@ impl<const MAX_BYTES: usize> FromStr for BoundedText<MAX_BYTES> {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
-        if value.is_empty() {
-            return Err("value must not be empty".to_owned());
-        }
-        if value.len() > MAX_BYTES {
-            return Err(format!("value must not exceed {MAX_BYTES} bytes"));
-        }
-        Ok(Self(value.to_owned()))
+        validate_text_length(value, MAX_BYTES).map(|()| Self(value.to_owned()))
     }
+}
+
+fn validate_text_length(value: &str, max_bytes: usize) -> Result<(), String> {
+    if value.is_empty() {
+        return Err("value must not be empty".to_owned());
+    }
+    if value.len() > max_bytes {
+        return Err(format!("value must not exceed {max_bytes} bytes"));
+    }
+    Ok(())
 }

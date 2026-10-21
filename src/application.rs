@@ -96,26 +96,32 @@ impl ApplicationError {
 
 impl Display for ApplicationError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Serialize(error) => write!(formatter, "failed to serialize request: {error}"),
-            Self::Bridge(error) => Display::fmt(error, formatter),
-            Self::InvalidResponse(error) => {
-                write!(formatter, "bridge returned invalid JSON: {error}")
-            }
-            Self::InvalidEnvelope(message) => {
-                write!(formatter, "invalid response envelope: {message}")
-            }
-            Self::Mail(response) => formatter.write_str(
-                response
-                    .pointer("/error/message")
-                    .and_then(Value::as_str)
-                    .unwrap_or("Mail operation failed"),
-            ),
-        }
+        write_application_error(self, formatter)
     }
 }
 
 impl Error for ApplicationError {}
+
+fn write_application_error(error: &ApplicationError, formatter: &mut Formatter<'_>) -> fmt::Result {
+    match error {
+        ApplicationError::Serialize(error) => {
+            write!(formatter, "failed to serialize request: {error}")
+        }
+        ApplicationError::Bridge(error) => Display::fmt(error, formatter),
+        ApplicationError::InvalidResponse(error) => {
+            write!(formatter, "bridge returned invalid JSON: {error}")
+        }
+        ApplicationError::InvalidEnvelope(message) => {
+            write!(formatter, "invalid response envelope: {message}")
+        }
+        ApplicationError::Mail(response) => formatter.write_str(
+            response
+                .pointer("/error/message")
+                .and_then(Value::as_str)
+                .unwrap_or("Mail operation failed"),
+        ),
+    }
+}
 
 fn mail_error_code(response: &Value) -> Option<&str> {
     response.pointer("/error/code").and_then(Value::as_str)

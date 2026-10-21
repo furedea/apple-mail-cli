@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "format": "oxfmt src/mail_bridge.js src/mail_bridge_types.d.ts tsconfig.json package.json pnpm-workspace.yaml .oxfmtrc.json .oxlintrc.json",
-    "format:check": "oxfmt --check src/mail_bridge.js src/mail_bridge_types.d.ts tsconfig.json package.json pnpm-workspace.yaml .oxfmtrc.json .oxlintrc.json",
-    "lint": "oxlint --deny-warnings --report-unused-disable-directives src/mail_bridge.js",
-    "lint:fix": "oxlint --fix --deny-warnings --report-unused-disable-directives src/mail_bridge.js",
+    "format": "oxfmt src/mail_bridge.js src/mail_bridge_lookup.js src/mail_bridge_values.js src/mail_bridge_types.d.ts tsconfig.json package.json pnpm-workspace.yaml .oxfmtrc.json .oxlintrc.json",
+    "format:check": "oxfmt --check src/mail_bridge.js src/mail_bridge_lookup.js src/mail_bridge_values.js src/mail_bridge_types.d.ts tsconfig.json package.json pnpm-workspace.yaml .oxfmtrc.json .oxlintrc.json",
+    "lint": "oxlint --deny-warnings --report-unused-disable-directives src/mail_bridge.js src/mail_bridge_lookup.js src/mail_bridge_values.js",
+    "lint:fix": "oxlint --fix --deny-warnings --report-unused-disable-directives src/mail_bridge.js src/mail_bridge_lookup.js src/mail_bridge_values.js",
     "typecheck": "tsc --project tsconfig.json",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck"
   },

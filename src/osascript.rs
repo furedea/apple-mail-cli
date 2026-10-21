@@ -1,12 +1,16 @@
 use std::io::Read;
 use std::path::Path;
-use std::process::{Command, ExitStatus, Stdio};
+use std::process::{Child, Command, ExitStatus, Stdio};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use crate::bridge::{BridgeError, MailBridge};
 
-const JXA_SOURCE: &str = include_str!("mail_bridge.js");
+const JXA_SOURCE: &str = concat!(
+    include_str!("mail_bridge.js"),
+    include_str!("mail_bridge_lookup.js"),
+    include_str!("mail_bridge_values.js"),
+);
 const OSASCRIPT_PATH: &str = "/usr/bin/osascript";
 const DEFAULT_TIMEOUT: Duration = Duration::from_secs(30);
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
@@ -40,15 +44,7 @@ impl MailBridge for OsascriptBridge {
             &arguments_for(request),
             self.timeout,
         )?;
-        if !output.status.success() {
-            return Err(BridgeError::Failed {
-                code: output.status.code(),
-                stderr: bounded_lossy_text(&output.stderr),
-            });
-        }
-
-        String::from_utf8(output.stdout)
-            .map_err(|error| BridgeError::InvalidOutput(error.to_string()))
+        successful_stdout(output)
     }
 }
 
@@ -77,28 +73,28 @@ fn run_process(
         .ok_or_else(|| BridgeError::Unavailable("failed to capture stderr".to_owned()))?;
     let stdout_reader = read_in_background(stdout, MAX_STDOUT_BYTES);
     let stderr_reader = read_in_background(stderr, MAX_STDERR_BYTES);
+
+    match wait_for_exit(&mut child, timeout) {
+        Ok(status) => collect_output(status, stdout_reader, stderr_reader),
+        Err(error) => {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = collect_read(stdout_reader);
+            let _ = collect_read(stderr_reader);
+            Err(error)
+        }
+    }
+}
+
+fn wait_for_exit(child: &mut Child, timeout: Duration) -> Result<ExitStatus, BridgeError> {
     let started_at = Instant::now();
 
     loop {
         match child.try_wait() {
-            Ok(Some(status)) => {
-                return collect_output(status, stdout_reader, stderr_reader);
-            }
-            Ok(None) if started_at.elapsed() >= timeout => {
-                let _ = child.kill();
-                let _ = child.wait();
-                let _ = collect_read(stdout_reader);
-                let _ = collect_read(stderr_reader);
-                return Err(BridgeError::Timeout);
-            }
+            Ok(Some(status)) => return Ok(status),
+            Ok(None) if started_at.elapsed() >= timeout => return Err(BridgeError::Timeout),
             Ok(None) => thread::sleep(POLL_INTERVAL),
-            Err(error) => {
-                let _ = child.kill();
-                let _ = child.wait();
-                let _ = collect_read(stdout_reader);
-                let _ = collect_read(stderr_reader);
-                return Err(BridgeError::Unavailable(error.to_string()));
-            }
+            Err(error) => return Err(BridgeError::Unavailable(error.to_string())),
         }
     }
 }
@@ -136,6 +132,17 @@ fn collect_output(
         stdout,
         stderr,
     })
+}
+
+fn successful_stdout(output: ProcessOutput) -> Result<String, BridgeError> {
+    if !output.status.success() {
+        return Err(BridgeError::Failed {
+            code: output.status.code(),
+            stderr: bounded_lossy_text(&output.stderr),
+        });
+    }
+
+    String::from_utf8(output.stdout).map_err(|error| BridgeError::InvalidOutput(error.to_string()))
 }
 
 fn collect_read(reader: JoinHandle<std::io::Result<Vec<u8>>>) -> Result<Vec<u8>, BridgeError> {
@@ -241,6 +248,86 @@ run = function () {
 "#;
 
         assert_eq!(run_jxa_harness(HARNESS), "/Projects/Inbox");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn mailbox_paths_stop_at_an_unreadable_container() {
+        const HARNESS: &str = r#"
+run = function () {
+  const account = { id: function () { return "account-1"; } };
+  const throwing = {
+    name: function () { return "Inbox"; },
+    account: function () { return account; },
+    container: function () { throw new Error("gone"); },
+  };
+  const nameless = {
+    name: function () { return "Archive"; },
+    account: function () { return account; },
+    container: function () { return {}; },
+  };
+  return mailboxPath(throwing) + " " + mailboxPath(nameless);
+};
+"#;
+
+        assert_eq!(run_jxa_harness(HARNESS), "/Inbox /Archive");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn mailbox_listing_accepts_thirty_two_nesting_levels_and_rejects_more() {
+        const HARNESS: &str = r#"
+run = function () {
+  function nested(levels) {
+    let mailboxes = [];
+    for (let level = 0; level < levels; level += 1) {
+      const children = mailboxes;
+      mailboxes = [{
+        name: function () { return "m"; },
+        unreadCount: function () { return 0; },
+        mailboxes: function () { return children; },
+      }];
+    }
+    return {
+      accounts: function () {
+        return [{ id: function () { return "account-1"; }, mailboxes: function () { return mailboxes; } }];
+      },
+    };
+  }
+  function outcome(levels) {
+    try {
+      return String(listMailboxes(nested(levels), { action: "mailboxes", account: "account-1" }).length);
+    } catch (error) {
+      return String(errorEnvelope(error).error.code);
+    }
+  }
+  return outcome(32) + " " + outcome(33);
+};
+"#;
+
+        assert_eq!(run_jxa_harness(HARNESS), "32 mailbox_depth_exceeded");
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn unread_limit_must_stay_within_its_range() {
+        const HARNESS: &str = r#"
+run = function () {
+  return [0, 201, 1.5, "1"].map(function (limit) {
+    try {
+      listUnread({}, { action: "unread", limit: limit });
+      return "accepted";
+    } catch (error) {
+      return String(errorEnvelope(error).error.message);
+    }
+  }).join(",");
+};
+"#;
+
+        assert_eq!(
+            run_jxa_harness(HARNESS),
+            ["limit must be an integer in the supported range"; 4].join(","),
+        );
     }
 
     #[cfg(target_os = "macos")]
