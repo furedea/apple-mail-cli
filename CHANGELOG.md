@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.1.2](https://github.com/furedea/apple-mail-cli/compare/apple-mail-cli-v0.1.1...apple-mail-cli-v0.1.2) (2026-11-04)
+
+
+### Bug Fixes
+
+* **deps:** pin dependencies ([#15](https://github.com/furedea/apple-mail-cli/issues/15)) ([d6e8ad8](https://github.com/furedea/apple-mail-cli/commit/d6e8ad870c1cf65f1e8f4cad0147f921c0c202fa))
+* **deps:** update rust crate clap to v4.6.7 ([#16](https://github.com/furedea/apple-mail-cli/issues/16)) ([42e311c](https://github.com/furedea/apple-mail-cli/commit/42e311c9f5274c4de217d519360e6961bb091d3e))
+
 ## [0.1.1](https://github.com/furedea/apple-mail-cli/compare/apple-mail-cli-v0.1.0...apple-mail-cli-v0.1.1) (2026-10-20)
 
 
